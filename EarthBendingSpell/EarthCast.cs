@@ -65,10 +65,35 @@ namespace EarthBendingSpell
 
         private float imbueHitGroundLastTime;
 
+        public override void Init()
+        {
+            EventManager.onPossess += EventManager_onPossess;
+
+            base.Init();
+        }
+
+        private void EventManager_onPossess(Creature creature, EventTime eventTime)
+        {
+            if (creature.container.contents.Where(c => c.itemData.id == "SpellEarthItem").Count() <= 0)
+                creature.container.AddContent(Catalog.GetData<ItemData>("SpellEarthItem"));
+
+            if (creature.container.contents.Where(c => c.itemData.id == "SpellEarthFireMerge").Count() <= 0)
+                creature.container.AddContent(Catalog.GetData<ItemData>("SpellEarthFireMerge"));
+
+            if (creature.container.contents.Where(c => c.itemData.id == "SpellEarthIceMerge").Count() <= 0)
+                creature.container.AddContent(Catalog.GetData<ItemData>("SpellEarthIceMerge"));
+
+            if (creature.container.contents.Where(c => c.itemData.id == "SpellMeteorBarrage").Count() <= 0)
+                creature.container.AddContent(Catalog.GetData<ItemData>("SpellMeteorBarrage"));
+
+            if (creature.container.contents.Where(c => c.itemData.id == "LightningStorm").Count() <= 0)
+                creature.container.AddContent(Catalog.GetData<ItemData>("LightningStorm"));
+        }
 
         public override void Fire(bool active)
         {
             base.Fire(active);
+
 
             if (!active)
             {
@@ -127,7 +152,7 @@ namespace EarthBendingSpell
 
             EarthBendingController scr = spellCaster.mana.gameObject.GetComponent<EarthBendingController>();
 
-            if (spellCaster.bodyHand.side == Side.Left)
+            if (spellCaster.ragdollHand.side == Side.Left)
             {
                 scr.leftHandActive = active;
             } else
@@ -137,12 +162,12 @@ namespace EarthBendingSpell
         }
 
 
-        public override void OnImbueCollisionStart(ref CollisionStruct collisionInstance)
+        public override void OnImbueCollisionStart(CollisionInstance collisionInstance)
         {
-            base.OnImbueCollisionStart(ref collisionInstance);
+            base.OnImbueCollisionStart(collisionInstance);
 
 
-            if (imbue.colliderGroup.data.imbueType == ColliderGroupData.ImbueType.Crystal && !collisionInstance.targetColliderGroup && collisionInstance.impactVelocity.magnitude > imbueHitGroundMinVelocity && imbue.CanConsume(imbueHitGroundConsumption) && Time.time - imbueHitGroundLastTime > imbueHitGroundRechargeDelay)
+            if (imbue.colliderGroup.modifier.imbueType == ColliderGroupData.ImbueType.Crystal && !collisionInstance.targetColliderGroup && collisionInstance.impactVelocity.magnitude > imbueHitGroundMinVelocity && imbue.CanConsume(imbueHitGroundConsumption) && Time.time - imbueHitGroundLastTime > imbueHitGroundRechargeDelay)
             {
                 imbue.colliderGroup.collisionHandler.item.StartCoroutine(RockShockWaveCoroutine(collisionInstance.contactPoint, collisionInstance.contactNormal, collisionInstance.sourceColliderGroup.transform.up, collisionInstance.impactVelocity));
                 imbueHitGroundLastTime = Time.time;
@@ -155,7 +180,7 @@ namespace EarthBendingSpell
             {
                 Creature creature = collisionInstance.damageStruct.hitRagdollPart.ragdoll.creature;
 
-                if (creature != Creature.player)
+                if (creature != Player.currentCreature)
                 {
                     RagdollPart ragdollPart = collisionInstance.damageStruct.hitRagdollPart;
 
@@ -167,10 +192,10 @@ namespace EarthBendingSpell
                         scr.Initialize();
                     } else if (collisionInstance.damageStruct.damageType == DamageType.Blunt)
                     {
-                        if (ragdollPart.partData.sliceAllowed)
+                        if (ragdollPart.data.bodyDamagerData.dismembermentAllowed)
                         {
-                            creature.ragdoll.Slice(ragdollPart.partData.bone);
-                            creature.health.Kill();
+                            creature.ragdoll.Slice(ragdollPart);
+                            creature.Kill();
                         }
                         
                     }
@@ -203,9 +228,9 @@ namespace EarthBendingSpell
                     {
                         //Is creature
                         Creature creature = collider.GetComponentInParent<Creature>();
-                        if (creature != Creature.player && !creature.health.isKilled)
+                        if (creature != Player.currentCreature && !creature.isKilled)
                         {
-                            creature.ragdoll.SetState(Creature.State.Destabilized);
+                            creature.ragdoll.SetState(Ragdoll.State.Destabilized);
                             collider.attachedRigidbody.AddExplosionForce(imbueHitGroundExplosionForce, contactPoint, imbueHitGroundRadius * 2, imbueHitGroundExplosionUpwardModifier, ForceMode.Impulse);
                         }
                     }
@@ -242,14 +267,16 @@ namespace EarthBendingSpell
                         this.imbueUseEffectData.Spawn(this.imbue.colliderGroup.imbueShoot, true, Array.Empty<Type>()).Play(0);
                     }*/
 
-                    Item item = Catalog.GetData<ItemPhysic>("Rock Weapon 1").Spawn(true, null);
-                    item.transform.position = imbue.colliderGroup.imbueShoot.position;
-                    item.transform.rotation = imbue.colliderGroup.imbueShoot.rotation;
+                    Catalog.GetData<ItemData>("Rock Weapon 1").SpawnAsync(delegate (Item rock)
+                    {
+                        rock.transform.position = imbue.colliderGroup.imbueShoot.position;
+                        rock.transform.rotation = imbue.colliderGroup.imbueShoot.rotation;
 
-                    item.IgnoreObjectCollision(imbue.colliderGroup.collisionHandler.item);
-                    
-                    item.rb.AddForce(imbue.colliderGroup.imbueShoot.forward * imbueCrystalShootForce * rb.GetPointVelocity(imbue.colliderGroup.imbueShoot.position).magnitude, ForceMode.Impulse);
-                    item.Throw(1f, Item.FlyDetection.Forced);
+                        rock.IgnoreObjectCollision(imbue.colliderGroup.collisionHandler.item);
+
+                        rock.rb.AddForce(imbue.colliderGroup.imbueShoot.forward * imbueCrystalShootForce * rb.GetPointVelocity(imbue.colliderGroup.imbueShoot.position).magnitude, ForceMode.Impulse);
+                        rock.Throw(1f, Item.FlyDetection.Forced);
+                    });                    
                 }
             }
         }
@@ -268,24 +295,29 @@ namespace EarthBendingSpell
         {
             creature = ragdollPart.ragdoll.creature;
 
-            RagdollData.Part.Type type = ragdollPart.partData.type;
+            RagdollPart.Type type = ragdollPart.type;
 
-            if (type == RagdollData.Part.Type.Feet || type == RagdollData.Part.Type.Legs)
+            RagdollPart.Type feetTypes = RagdollPart.Type.LeftFoot | RagdollPart.Type.RightFoot | RagdollPart.Type.LeftLeg | RagdollPart.Type.RightLeg;
+
+            if (feetTypes.HasFlag(type))
             {
                 creature.locomotion.speed = 0f;
             }
 
-            if (type == RagdollData.Part.Type.Hands || type == RagdollData.Part.Type.Arms)
+            RagdollPart.Type armTypesLeft = RagdollPart.Type.LeftArm | RagdollPart.Type.LeftHand;
+            RagdollPart.Type armTypesRight = RagdollPart.Type.RightArm | RagdollPart.Type.RightHand;
+
+            if (armTypesLeft.HasFlag(type) || armTypesRight.HasFlag(type))
             {
                 Side side = Side.Right;
                 bool check = false;
 
-                if (armLeftBones.Contains(ragdollPart.partData.bone))
+                if (armTypesLeft.HasFlag(type))
                 {
                     side = Side.Left;
                     check = true;
 
-                } else if (armRightBones.Contains(ragdollPart.partData.bone))
+                } else if (armTypesRight.HasFlag(type))
                 {
                     side = Side.Right;
                     check = true;
@@ -293,11 +325,11 @@ namespace EarthBendingSpell
 
                 if (check)
                 {
-                    if (creature.GetHeldHandle(side))
+                    if (creature.equipment.GetHeldHandle(side))
                     {
-                        foreach (Interactor interactor in creature.GetHeldHandle(side).handlers)
+                        foreach (RagdollHand interactor in creature.equipment.GetHeldHandle(side).handlers)
                         {
-                            if (interactor.bodyHand.body.creature == creature)
+                            if (interactor.creature == creature)
                             {
                                 interactor.UnGrab(false);
                             }
@@ -306,14 +338,14 @@ namespace EarthBendingSpell
                 }
             }
 
-            if (type == RagdollData.Part.Type.Head || type == RagdollData.Part.Type.Neck)
+            if (type == RagdollPart.Type.Head || type == RagdollPart.Type.Neck)
             {
-                creature.StopBrain();
+                creature.brain.Stop();
                 creature.locomotion.speed = 0f;
                 creature.animator.speed = 0f;
             }
 
-            Creature.player.StartCoroutine(ImbueCoroutine());
+            Player.currentCreature.StartCoroutine(ImbueCoroutine());
         }
 
         public void ResetCreature()
@@ -321,9 +353,9 @@ namespace EarthBendingSpell
             ragdollPart.rb.constraints = RigidbodyConstraints.None;
             creature.locomotion.speed = creature.data.locomotionSpeed;
 
-            if (!creature.brain.isActive)
+            if (!creature.brain.instance.isActive)
             {
-                creature.StartBrain();
+                creature.brain.instance.Start();
             }
             creature.locomotion.speed = creature.data.locomotionSpeed;
             creature.animator.speed = 1f;
@@ -331,14 +363,14 @@ namespace EarthBendingSpell
 
         IEnumerator ImbueCoroutine()
         {
-            creature.OnRagdollAttachEvent += Creature_OnRagdollAttachEvent;
+            creature.OnKillEvent += Creature_OnKillEvent;
 
             List<EffectInstance> effects = new List<EffectInstance>();
 
-            foreach (RagdollPart.ColliderInfo colliderInfo in ragdollPart.colliders)
+            foreach (Collider collider in ragdollPart.colliderGroup.colliders)
             {
                 EffectInstance imbueEffect = Catalog.GetData<EffectData>("EarthRagdollImbue").Spawn(ragdollPart.transform);
-                imbueEffect.SetCollider(colliderInfo.collider);
+                imbueEffect.SetCollider(collider);
                 imbueEffect.Play();
                 imbueEffect.SetIntensity(1f);
 
@@ -361,9 +393,9 @@ namespace EarthBendingSpell
             Destroy(this);
         }
 
-        private void Creature_OnRagdollAttachEvent(ThunderRoad.Ragdoll ragdoll)
+        private void Creature_OnKillEvent(CollisionInstance collisionStruct, EventTime eventTime)
         {
-            foreach (RagdollPart ragdollPart in ragdoll.parts)
+            foreach (RagdollPart ragdollPart in collisionStruct.damageStruct.hitRagdollPart.ragdoll.parts)
             {
                 if (ragdollPart.gameObject.GetComponent<EarthBendingRagdollPart>())
                 {
@@ -373,6 +405,8 @@ namespace EarthBendingSpell
                 }
             }
         }
+
+        
     }
 
     public class EarthBendingController : MonoBehaviour
@@ -449,7 +483,7 @@ namespace EarthBendingSpell
 
         private EffectData rockPillarCollisionEffectData;
         private EffectData rockPillarPointsData;
-        private ItemPhysic rockPillarItemData;
+        private ItemData rockPillarItemData;
 
         private EffectData shatterEffectData;
 
@@ -460,16 +494,16 @@ namespace EarthBendingSpell
 
         private EffectData pushEffectData;
 
-        private ItemPhysic shieldItemData;
+        private ItemData shieldItemData;
 
         public void Initialize()
         {
-            mana = Creature.player.mana;
+            mana = Player.currentCreature.mana;
 
             // RockPillarData
             rockPillarCollisionEffectData = Catalog.GetData<EffectData>(rockPillarCollisionEffectId);
             rockPillarPointsData = Catalog.GetData<EffectData>(rockPillarPointsId);
-            rockPillarItemData = Catalog.GetData<ItemPhysic>(rockPillarItemId);
+            rockPillarItemData = Catalog.GetData<ItemData>(rockPillarItemId);
 
             // ShatterData
             shatterEffectData = Catalog.GetData<EffectData>(shatterEffectId);
@@ -485,7 +519,7 @@ namespace EarthBendingSpell
             pushEffectData = Catalog.GetData<EffectData>(pushEffectId);
 
             // ShieldData
-            shieldItemData = Catalog.GetData<ItemPhysic>(shieldItemId);
+            shieldItemData = Catalog.GetData<ItemData>(shieldItemId);
         }
 
         private void Update()
@@ -564,7 +598,7 @@ namespace EarthBendingSpell
             {
                 if (handsPointingDown) //If hands is pointing down
                 {
-                    if (Mathf.Abs(Vector3.Dot(-Player.local.body.transform.right, mana.casterLeft.magic.up)) < 0.4 && Mathf.Abs(Vector3.Dot(Player.local.body.transform.right, mana.casterLeft.magic.up)) < 0.4) //If hands are not to the side
+                    if (Mathf.Abs(Vector3.Dot(-Player.currentCreature.transform.right, mana.casterLeft.magic.up)) < 0.4 && Mathf.Abs(Vector3.Dot(Player.currentCreature.transform.right, mana.casterLeft.magic.up)) < 0.4) //If hands are not to the side
                     {
                         if (Vector3.Dot(Vector3.up, leftVel) > shieldMinSpeed && Vector3.Dot(Vector3.up, rightVel) > shieldMinSpeed) //If hands are moving up at a set speed
                         {
@@ -606,13 +640,13 @@ namespace EarthBendingSpell
         private void UpdateSpike()
         {
             //Spike logic
-            Vector3 vecBetweenForAndDown = Vector3.Slerp(Vector3.up, Player.local.body.transform.forward, 0.5f).normalized; //Get 45 degree angle between up and forwards
+            Vector3 vecBetweenForAndDown = Vector3.Slerp(Vector3.up, Player.currentCreature.transform.forward, 0.5f).normalized; //Get 45 degree angle between up and forwards
 
             if (canSpawnSpikes)
             {
                 if (Vector3.Dot(mana.casterLeft.magic.forward, vecBetweenForAndDown) > 0.7f && Vector3.Dot(mana.casterRight.magic.forward, vecBetweenForAndDown) > 0.7f)
                 {
-                    if (Vector3.Dot(mana.casterLeft.magic.right, -Player.local.body.transform.right) > 0.7 && Vector3.Dot(mana.casterRight.magic.right, -Player.local.body.transform.right) > 0.7) //Hand are pointing to the sides
+                    if (Vector3.Dot(mana.casterLeft.magic.right, -Player.currentCreature.transform.right) > 0.7 && Vector3.Dot(mana.casterRight.magic.right, -Player.currentCreature.transform.right) > 0.7) //Hand are pointing to the sides
                     {
                         if (Vector3.Dot(mana.casterLeft.magic.forward, leftVel) > spikeMinSpeed && Vector3.Dot(mana.casterLeft.magic.forward, rightVel) > spikeMinSpeed) //Hands are moving forwards
                         {
@@ -635,7 +669,7 @@ namespace EarthBendingSpell
                     {
                         if (Vector3.Dot(Vector3.down, mana.casterLeft.magic.forward) > 0.7f) //If hand is pointing down
                         {
-                            if (Mathf.Abs(Vector3.Dot(-Player.local.body.transform.right, mana.casterLeft.magic.up)) < 0.7) //If hand is not to the side
+                            if (Mathf.Abs(Vector3.Dot(-Player.currentCreature.transform.right, mana.casterLeft.magic.up)) < 0.7) //If hand is not to the side
                             {
                                 if (Vector3.Dot(Vector3.up, leftVel) > shieldMinSpeed) //If speed is greater than min
                                 {
@@ -657,7 +691,7 @@ namespace EarthBendingSpell
                     {
                         if (Vector3.Dot(Vector3.down, mana.casterRight.magic.forward) > 0.7f) //If hand is pointing down
                         {
-                            if (Mathf.Abs(Vector3.Dot(-Player.local.body.transform.right, mana.casterRight.magic.up)) < 0.7) //If hand is not to the side
+                            if (Mathf.Abs(Vector3.Dot(-Player.currentCreature.transform.right, mana.casterRight.magic.up)) < 0.7) //If hand is not to the side
                             {
                                 if (Vector3.Dot(Vector3.up, rightVel) > shieldMinSpeed)
                                 {
@@ -682,7 +716,7 @@ namespace EarthBendingSpell
             {
                 if (handsPointingDown)
                 {
-                    if (Vector3.Dot(Player.local.body.transform.right, mana.casterLeft.magic.right) > 0.8f && Vector3.Dot(Player.local.body.transform.right, mana.casterRight.magic.right) > 0.8f)
+                    if (Vector3.Dot(Player.currentCreature.transform.right, mana.casterLeft.magic.right) > 0.8f && Vector3.Dot(Player.currentCreature.transform.right, mana.casterRight.magic.right) > 0.8f)
                     {
                         if (Vector3.Dot(mana.casterLeft.magic.up, leftVel) > shatterMinSpeed && Vector3.Dot(mana.casterLeft.magic.up, rightVel) > shatterMinSpeed) // Moving hands forwards
                         {
@@ -714,24 +748,27 @@ namespace EarthBendingSpell
 
         IEnumerator PillarDownCoroutine()
         {
-            Vector3 middlePoint = Vector3.Lerp(mana.casterLeft.magic.position, mana.casterRight.magic.position, 0.5f) + Player.local.body.transform.forward * 0.25f;
+            Vector3 middlePoint = Vector3.Lerp(mana.casterLeft.magic.position, mana.casterRight.magic.position, 0.5f) + Player.currentCreature.transform.forward * 0.25f;
             RaycastHit hit;
             if (Physics.Raycast(middlePoint, Vector3.down, out hit, Mathf.Infinity, LayerMask.GetMask("Default")))
             {
-                EffectInstance spawnPoints = rockPillarPointsData.Spawn(hit.point, Player.local.body.transform.rotation);
+                EffectInstance spawnPoints = rockPillarPointsData.Spawn(hit.point, Player.currentCreature.transform.rotation);
 
                 foreach (Transform child in spawnPoints.effects[0].transform)
                 {
-                    Item rockPillar = rockPillarItemData.Spawn();
-                    rockPillar.transform.position = child.position;
-                    rockPillar.transform.rotation = child.rotation;
+                    rockPillarItemData.SpawnAsync(delegate (Item rockPillar)
+                    {
+                        rockPillar.transform.position = child.position;
+                        rockPillar.transform.rotation = child.rotation;
 
-                    rockPillar.rb.velocity = -Vector3.up * 2;
+                        rockPillar.rb.velocity = -Vector3.up * 2;
 
-                    RockPillarCollision scr = rockPillar.gameObject.AddComponent<RockPillarCollision>();
-                    scr.effectData = rockPillarCollisionEffectData;
+                        RockPillarCollision scr = rockPillar.gameObject.AddComponent<RockPillarCollision>();
+                        scr.effectData = rockPillarCollisionEffectData;
 
-                    StartCoroutine(DespawnItemAfterTime(rockPillarLifeTime, rockPillar));
+                        StartCoroutine(DespawnItemAfterTime(rockPillarLifeTime, rockPillar));
+                    });
+                    
                     yield return new WaitForSeconds(rockPillarSpawnDelay);
                 }
 
@@ -755,11 +792,11 @@ namespace EarthBendingSpell
             RaycastHit hit;
             RaycastHit hitEnd;
 
-            Vector3 forwards = Player.local.body.transform.forward;
+            Vector3 forwards = Player.currentCreature.transform.forward;
 
             if (Physics.Raycast(middlePoint, Vector3.down, out hit, Mathf.Infinity, LayerMask.GetMask("Default")) && Physics.Raycast(middlePoint+forwards*shatterRange, Vector3.down, out hitEnd, 2.5f, LayerMask.GetMask("Default")))
             {
-                EffectInstance shatter = shatterEffectData.Spawn(hit.point, Player.local.body.transform.rotation);
+                EffectInstance shatter = shatterEffectData.Spawn(hit.point, Player.currentCreature.transform.rotation);
                 shatter.Play();
 
                 Collider[] colliders = Physics.OverlapCapsule(hit.point, hit.point + (forwards * shatterRange), shatterRadius);
@@ -771,11 +808,11 @@ namespace EarthBendingSpell
                         if (collider.GetComponentInParent<Creature>())
                         {
                             Creature creature = collider.GetComponentInParent<Creature>();
-                            if (creature != Creature.player)
+                            if (creature != Player.currentCreature)
                             {
-                                if (creature.ragdoll.state == Creature.State.Alive)
+                                if (creature.state == Creature.State.Alive)
                                 {
-                                    creature.ragdoll.SetState(Creature.State.Destabilized);
+                                    creature.ragdoll.SetState(Ragdoll.State.Destabilized);
                                 }
 
                                 StartCoroutine(AddForceInOneFrame(collider.attachedRigidbody, forwards));
@@ -787,7 +824,7 @@ namespace EarthBendingSpell
 
                             if (item.mainHandler)
                             {
-                                if (item.mainHandler.bodyHand.body.creature != Creature.player)
+                                if (item.mainHandler.creature != Player.currentCreature)
                                 {
                                     StartCoroutine(AddForceInOneFrame(collider.attachedRigidbody, forwards));
                                 }
@@ -813,7 +850,7 @@ namespace EarthBendingSpell
             RaycastHit hit;
             RaycastHit hitEnd;
 
-            Vector3 forwards = Player.local.body.transform.forward;
+            Vector3 forwards = Player.currentCreature.transform.forward;
 
             if (Physics.Raycast(middlePoint, Vector3.down, out hit, Mathf.Infinity, LayerMask.GetMask("Default")) && Physics.Raycast(middlePoint + forwards * spikeRange, Vector3.down, out hitEnd, 2.5f, LayerMask.GetMask("Default")))
             {
@@ -830,13 +867,13 @@ namespace EarthBendingSpell
                     StartCoroutine(SpikeSpawnCoroutine(point));
                 }*/
                 
-                EffectInstance spikes = spikeEffectData.Spawn(hit.point, Player.local.body.transform.rotation);
+                EffectInstance spikes = spikeEffectData.Spawn(hit.point, Player.currentCreature.transform.rotation);
                 spikes.Play();
 
                 //Get creatures in front
                 foreach (Creature creature in Creature.list)
                 {
-                    if (creature != Creature.player)
+                    if (creature != Player.currentCreature)
                     {
 
                         float dist = Vector3.Distance(creature.transform.position, hit.point);
@@ -846,26 +883,28 @@ namespace EarthBendingSpell
                             Vector3 dir = (creature.transform.position - hit.point).normalized;
                             if (Vector3.Dot(dir, forwards) > spikeMinAngle)
                             {
-                                if (creature.ragdoll.state != Creature.State.Dead)
+                                if (creature.state != Creature.State.Dead)
                                 {
-                                    creature.ragdoll.SetState(Creature.State.Destabilized);
-                                    CollisionStruct collisionStruct = new CollisionStruct(new DamageStruct(DamageType.Pierce, spikeDamage));
-                                    collisionStruct.NewHit(null, creature.ragdoll.GetPart(HumanBodyBones.Chest).colliders[0].collider, null, creature.ragdoll.GetPart(HumanBodyBones.Chest).colliderGroup, Vector3.up * 20f, creature.ragdoll.GetPart(HumanBodyBones.Chest).colliders[0].collider.ClosestPointOnBounds(hit.point), (hit.point - creature.ragdoll.GetPart(HumanBodyBones.Chest).colliders[0].collider.ClosestPointOnBounds(hit.point)).normalized, 10f, Catalog.GetData<MaterialData>("Blade"), Catalog.GetData<MaterialData>("Flesh"));
-                                    creature.health.Damage(ref collisionStruct);
+                                    creature.ragdoll.SetState(Ragdoll.State.Destabilized);
+                                    CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, spikeDamage));
+                                    collisionStruct.NewHit(null, creature.ragdoll.GetPart(RagdollPart.Type.Torso).colliderGroup.colliders[0], null, creature.ragdoll.GetPart(RagdollPart.Type.Torso).colliderGroup, Vector3.up * 20f, creature.ragdoll.GetPart(RagdollPart.Type.Torso).colliderGroup.colliders[0].ClosestPointOnBounds(hit.point), (hit.point - creature.ragdoll.GetPart(RagdollPart.Type.Torso).colliderGroup.colliders[0].ClosestPointOnBounds(hit.point)).normalized, 10f, Catalog.GetData<MaterialData>("Blade"), Catalog.GetData<MaterialData>("Flesh"));
+                                    creature.Damage(collisionStruct);
 
 
                                     //Spawn itemSpike
-                                    Item spike = Catalog.GetData<ItemPhysic>("EarthBendingRockSpikes").Spawn();
-                                    spike.transform.position = creature.body.transform.position;
-                                    spike.transform.rotation = Player.local.body.transform.rotation;
+                                    Catalog.GetData<ItemData>("EarthBendingRockSpikes").SpawnAsync(delegate(Item spike)
+                                    {
+                                        spike.transform.position = creature.transform.position;
+                                        spike.transform.rotation = Player.currentCreature.transform.rotation;
 
-                                    Transform spikeMeshTransform = spike.definition.GetCustomReference("Mesh");
+                                        Transform spikeMeshTransform = spike.GetCustomReference("Mesh");
 
-                                    spikeMeshTransform.localScale = new Vector3(.15f, .15f, .15f);
+                                        spikeMeshTransform.localScale = new Vector3(.15f, .15f, .15f);
 
-                                    spike.transform.localEulerAngles += new Vector3(35, 0, 0);
+                                        spike.transform.localEulerAngles += new Vector3(35, 0, 0);
 
-                                    spike.Despawn(5f);
+                                        spike.Despawn(5f);
+                                    });
                                 }
                             }
                         }
@@ -877,57 +916,68 @@ namespace EarthBendingSpell
 
         IEnumerator SpawnShieldCoroutine()
         {
-            Vector3 middlePoint = Vector3.Lerp(mana.casterLeft.magic.position, mana.casterRight.magic.position, 0.5f) + Player.local.body.transform.forward * 0.7f;
+            Vector3 middlePoint = Vector3.Lerp(mana.casterLeft.magic.position, mana.casterRight.magic.position, 0.5f) + Player.currentCreature.transform.forward * 0.7f;
 
             RaycastHit hit;
             if (Physics.Raycast(middlePoint, Vector3.down, out hit, Mathf.Infinity, LayerMask.GetMask("Default")))
             {
 
-                Item shield = shieldItemData.Spawn();
-
-                shield.definition.SetSavedValue("HP", shieldHealth.ToString());
-
-                Vector3 spawnPoint = hit.point;
-
-                shield.transform.position = spawnPoint;
-                shield.transform.rotation = Player.local.body.transform.rotation;
-
-                Animation shieldAnimation = shield.definition.GetCustomReference("RockAnim").GetComponent<Animation>();
-
-                shieldAnimation.Play();
-
-                yield return new WaitForSeconds(shieldAnimation.clip.length);
-
-                shield.OnDamageReceivedEvent += Shield_OnDamageReceivedEvent;
-
-                float startTime = Time.time;
-
-                while (Time.time - startTime < shieldFreezeTime)
+                shieldItemData.SpawnAsync(delegate (Item shield)
                 {
+                    shield.StartCoroutine(ShieldSpawnedCoroutine(shield, hit));
+                }, null, null, null,true, new List<Item.SavedValue>() { new Item.SavedValue("HP", shieldHealth.ToString()) });
+            }
 
-                    if (pushCalled)
+            yield return null;
+        }
+
+        private IEnumerator ShieldSpawnedCoroutine(Item shield, RaycastHit hit)
+        {
+            shield.SetSavedValue("HP", shieldHealth.ToString());
+
+            Vector3 spawnPoint = hit.point;
+
+            shield.transform.position = spawnPoint;
+            shield.transform.rotation = Player.currentCreature.transform.rotation;
+
+            Animation shieldAnimation = shield.GetCustomReference("RockAnim").GetComponent<Animation>();
+
+            shieldAnimation.Play();
+
+            yield return new WaitForSeconds(shieldAnimation.clip.length);
+
+            shield.colliderGroups[0].collisionHandler.OnCollisionStartEvent += Shield_OnDamageReceivedEvent;
+
+            float startTime = Time.time;
+
+            while (Time.time - startTime < shieldFreezeTime)
+            {
+
+                if (pushCalled)
+                {
+                    //Get forwards
+                    Vector3 forwards = Player.currentCreature.transform.forward;
+                    //Get wall to player direction
+                    Vector3 dir = (shield.transform.position - Player.currentCreature.transform.position).normalized;
+
+                    //Dot
+                    if (Vector3.Dot(dir, forwards) > 0.6f)
                     {
-                        //Get forwards
-                        Vector3 forwards = Player.local.body.transform.forward;
-                        //Get wall to player direction
-                        Vector3 dir = (shield.transform.position - Player.local.body.transform.position).normalized;
-
-                        //Dot
-                        if (Vector3.Dot(dir, forwards) > 0.6f )
-                        {
-                            StartCoroutine(ShieldPush(shield, (leftVel.normalized + rightVel.normalized)));
-                            break;
-                        }
+                        StartCoroutine(ShieldPush(shield, (leftVel.normalized + rightVel.normalized)));
+                        break;
                     }
-              
-
-                    yield return new WaitForEndOfFrame();
                 }
 
-                yield return new WaitUntil(() => Time.time - startTime > shieldFreezeTime);
 
-                StartCoroutine(DespawnShield(shield));
+                yield return new WaitForEndOfFrame();
             }
+
+            yield return new WaitUntil(() => Time.time - startTime > shieldFreezeTime);
+
+            shield.colliderGroups[0].collisionHandler.OnCollisionStartEvent -= Shield_OnDamageReceivedEvent;
+
+            StartCoroutine(DespawnShield(shield));
+            
         }
 
         private IEnumerator ShieldPush(Item shield, Vector3 direction)
@@ -951,62 +1001,96 @@ namespace EarthBendingSpell
             shield.rb.useGravity = false;
         }
 
-        private void Shield_OnDamageReceivedEvent(ref CollisionStruct collisionStruct)
+        private void Shield_OnDamageReceivedEvent(CollisionInstance collisionStruct)
         {
             if (collisionStruct.impactVelocity.magnitude > 2)
             {
-                Item shield = collisionStruct.targetCollider.GetComponentInParent<Item>();
+                bool l_leftS = (collisionStruct.sourceColliderGroup != null ? collisionStruct.sourceColliderGroup == Player.currentCreature.handLeft.colliderGroup : false);
+                bool l_leftT = (collisionStruct.targetColliderGroup != null ? collisionStruct.targetColliderGroup == Player.currentCreature.handLeft.colliderGroup : false);
+
+                bool l_rightS = (collisionStruct.sourceColliderGroup != null ? collisionStruct.sourceColliderGroup == Player.currentCreature.handRight.colliderGroup : false);
+                bool l_rightT = (collisionStruct.targetColliderGroup != null ? collisionStruct.targetColliderGroup == Player.currentCreature.handRight.colliderGroup : false);
+
+                Item shield = null;
+                Collider hitCol = null;
+
+                if (collisionStruct.targetCollider.GetComponentInParent<Item>())
+                {
+                    if (collisionStruct.targetCollider.GetComponentInParent<Item>().itemId == shieldItemId)
+                    {
+                        shield = collisionStruct.targetCollider.GetComponentInParent<Item>();
+                    }
+                } else
+                {
+                    shield = collisionStruct.sourceCollider.GetComponentInParent<Item>();
+                }
+
+                if (l_leftS || l_rightS)
+                {
+                    shield = collisionStruct.targetCollider.GetComponentInParent<Item>();
+                    hitCol = collisionStruct.targetCollider;
+
+                }
+                if (l_leftT || l_rightT)
+                {
+                    shield = collisionStruct.sourceCollider.GetComponentInParent<Item>();
+                    hitCol = collisionStruct.sourceCollider;
+                }
 
                 string HP;
-                shield.definition.TryGetSavedValue("HP", out HP);
+                shield.TryGetSavedValue("HP", out HP);
 
                 float OldHP = float.Parse(HP);
 
-                if (collisionStruct.sourceCollider.GetComponentInParent<Item>())
+                if (shield != null)
                 {
-                    Item dmgItem = collisionStruct.sourceCollider.GetComponentInParent<Item>();
-
-                    if (dmgItem.mainHandler)
+                    if (OldHP - 1 > 0)
                     {
-                        Creature holdCreature = dmgItem.mainHandler.bodyHand.body.creature;
-                        if (holdCreature != Creature.player)
+                        if (l_leftS || l_leftT)
                         {
-                            holdCreature.TryAction(new ActionStagger(collisionStruct.contactNormal, 10f, ActionStagger.Type.FallGround), true);
-                        } else
-                        {
-                            if (dmgItem == Creature.player.body.handLeft.playerHand.itemHand.item || dmgItem == Creature.player.body.handRight.playerHand.itemHand.item)
-                            {
-                                if (OldHP - 1 > 0)
-                                {
-                                    StartCoroutine(ShieldPush(shield, collisionStruct.impactVelocity.normalized));
-                                }
-                            }
+                            StartCoroutine(ShieldPush(shield, leftVel.normalized.normalized));
                         }
+                        if (l_rightS || l_rightT)
+                        {
+                            StartCoroutine(ShieldPush(shield, rightVel.normalized.normalized));
+                        }
+
+                        
                     }
                 }
 
+                string lastHit = "0";
+                shield.TryGetSavedValue("LastHit", out lastHit);
 
+                if (Time.time - float.Parse(lastHit) > 0.1f)
+                {
+                    if (OldHP - 1 < 1)
+                    {
+                        StartCoroutine(DespawnShield(shield));
+                    }
+                    else
+                    {
+                        shield.SetSavedValue("HP", (OldHP - 1).ToString());
+                    }
 
-                if (OldHP - 1 < 1)
-                {
-                    StartCoroutine(DespawnShield(shield));
-                } else
-                {
-                    shield.definition.SetSavedValue("HP", (OldHP - 1).ToString());
+                    shield.SetSavedValue("LastHit", Time.time.ToString());
+
                 }
+
+
             }
         }
 
 
         IEnumerator DespawnShield(Item shield)
         {
-            ParticleSystem ps = shield.definition.GetCustomReference("ShatterParticles").GetComponent<ParticleSystem>();
-            ParticleSystem activePS = shield.definition.GetCustomReference("ActiveParticles").GetComponent<ParticleSystem>();
+            ParticleSystem ps = shield.GetCustomReference("ShatterParticles").GetComponent<ParticleSystem>();
+            ParticleSystem activePS = shield.GetCustomReference("ActiveParticles").GetComponent<ParticleSystem>();
 
             if (!ps.isPlaying) // Only run if it aint playing, fixes multiple calls
             {
                 //disable colliders
-                foreach (ColliderGroup colliderGroup in shield.definition.colliderGroups)
+                foreach (ColliderGroup colliderGroup in shield.colliderGroups)
                 {
                     foreach (Collider collider in colliderGroup.colliders)
                     {
@@ -1015,7 +1099,7 @@ namespace EarthBendingSpell
                 }
 
                 //Disable mesh renderer
-                foreach (Renderer meshRenderer in shield.definition.renderers)
+                foreach (Renderer meshRenderer in shield.renderers)
                 {
                     meshRenderer.enabled = false;
                 }
@@ -1040,135 +1124,179 @@ namespace EarthBendingSpell
 
         IEnumerator SpawnRockCoroutine(SpellCaster spellCasterSide)
         {
-            Vector3 middlePoint = spellCasterSide.transform.position + Player.local.body.transform.forward * 0.25f;
+            Vector3 middlePoint = spellCasterSide.transform.position + Player.currentCreature.transform.forward * 0.25f;
 
             RaycastHit hit;
             if (Physics.Raycast(middlePoint, Vector3.down, out hit, Mathf.Infinity, LayerMask.GetMask("Default")))
             {
-                string randRock = rockItemIds[UnityEngine.Random.Range(0, rockItemIds.Count)];
-                Item rock = Catalog.GetData<ItemPhysic>(randRock).Spawn();
-
-                rock.rb.mass = UnityEngine.Random.Range(rockMassMinMax.x, rockMassMinMax.y);
-
                 Vector3 spawnPoint = hit.point + Vector3.down;
 
-                rock.transform.position = spawnPoint;
-                rock.transform.rotation = Player.local.body.transform.rotation;
-
-                EffectInstance rockSummonEffect = rockSummonEffectData.Spawn(hit.point, Quaternion.identity);
-                rockSummonEffect.Play();
+                string randRock = rockItemIds[UnityEngine.Random.Range(0, rockItemIds.Count)];
 
 
-                foreach (ColliderGroup colliderGroup in rock.definition.colliderGroups)
+                Catalog.GetData<ItemData>(randRock).SpawnAsync(delegate (Item rock)
                 {
-                    foreach (Collider collider in colliderGroup.colliders)
-                    {
-                        collider.enabled = false;
-                    }
-                }
-
-                rock.rb.useGravity = false;
-                //shield.rb.AddForce(Vector3.up * 60, ForceMode.Impulse);
-
-
-
-                while (rock.transform.position.y < hit.point.y + ((Creature.player.body.headBone.position.y - hit.point.y) / rockHeightFromGround))
-                {
-                    rock.transform.position = Vector3.MoveTowards(rock.transform.position, hit.point + new Vector3(0, ((Creature.player.body.headBone.position.y - hit.point.y) / rockHeightFromGround) + 0.05f, 0), Time.deltaTime * rockMoveSpeed);
-                    yield return new WaitForEndOfFrame();
-                }
-
-                foreach (ColliderGroup colliderGroup in rock.definition.colliderGroups)
-                {
-                    foreach (Collider collider in colliderGroup.colliders)
-                    {
-                        collider.enabled = true;
-                    }
-                }
-
-                rock.rb.velocity = Vector3.zero;
-                float startTime = Time.time;
-
-                rock.rb.angularVelocity = UnityEngine.Random.insideUnitSphere * 2;
-
-                rock.OnDamageReceivedEvent += Rock_OnDamageReceivedEvent;
-
-                while (Time.time - startTime < rockFreezeTime)
-                {
-                    if (pushCalled)
-                    {
-
-                        EffectInstance effectInstance = pushEffectData.Spawn(rock.transform.position, Quaternion.identity);
-                        effectInstance.Play();
-
-                        rock.rb.AddForce((leftVel.normalized + rightVel.normalized) * pushForce * rockForceMul, ForceMode.Impulse);
-                        break;
-                    }
-                    yield return new WaitForEndOfFrame();
-                }
-
-                rock.rb.useGravity = true;
-
-                rock.OnDamageReceivedEvent -= Rock_OnDamageReceivedEvent;
-
+                    rock.StartCoroutine(RockSpawnedCoroutine(rock, spawnPoint, hit));
+                }, spawnPoint, Player.currentCreature.transform.rotation, null, false);
             }
+            yield return null;
+        }
+
+        IEnumerator RockSpawnedCoroutine(Item rock, Vector3 spawnPoint, RaycastHit hit)
+        {
+            rock.rb.mass = UnityEngine.Random.Range(rockMassMinMax.x, rockMassMinMax.y);
+
+            rock.transform.position = spawnPoint;
+            rock.transform.rotation = Player.currentCreature.transform.rotation;
+
+            EffectInstance rockSummonEffect = rockSummonEffectData.Spawn(hit.point, Quaternion.identity);
+            rockSummonEffect.Play();
+
+            foreach (ColliderGroup colliderGroup in rock.colliderGroups)
+            {
+                foreach (Collider collider in colliderGroup.colliders)
+                {
+                    collider.enabled = false;
+                }
+            }
+
+            rock.rb.useGravity = false;
+            //shield.rb.AddForce(Vector3.up * 60, ForceMode.Impulse);
+
+
+
+            while (rock.transform.position.y < hit.point.y + ((Player.currentCreature.ragdoll.headPart.transform.position.y - hit.point.y) / rockHeightFromGround))
+            {
+                rock.transform.position = Vector3.MoveTowards(rock.transform.position, hit.point + new Vector3(0, ((Player.currentCreature.ragdoll.headPart.transform.position.y - hit.point.y) / rockHeightFromGround) + 0.05f, 0), Time.deltaTime * rockMoveSpeed);
+                yield return new WaitForEndOfFrame();
+            }
+
+            foreach (ColliderGroup colliderGroup in rock.colliderGroups)
+            {
+                foreach (Collider collider in colliderGroup.colliders)
+                {
+                    collider.enabled = true;
+                }
+            }
+ 
+
+            rock.rb.velocity = Vector3.zero;
+            float startTime = Time.time;
+
+            rock.rb.angularVelocity = UnityEngine.Random.insideUnitSphere * 2;
+
+            rock.colliderGroups[0].collisionHandler.OnCollisionStartEvent += Rock_OnDamageReceivedEvent;
+
+            while (Time.time - startTime < rockFreezeTime)
+            {
+                if (pushCalled)
+                {
+
+                    EffectInstance effectInstance = pushEffectData.Spawn(rock.transform.position, Quaternion.identity);
+                    effectInstance.Play();
+
+                    rock.rb.AddForce((leftVel.normalized + rightVel.normalized) * pushForce * rockForceMul, ForceMode.Impulse);
+                    break;
+                }
+                yield return new WaitForEndOfFrame();
+            }
+
+            rock.rb.useGravity = true;
+
+            rock.colliderGroups[0].collisionHandler.OnCollisionStartEvent -= Rock_OnDamageReceivedEvent;
 
             yield return null;
         }
 
-        private void Rock_OnDamageReceivedEvent(ref CollisionStruct collisionStruct)
+        private void Rock_OnDamageReceivedEvent(CollisionInstance collisionStruct)
         {
-            if (collisionStruct.sourceCollider.GetComponentInParent<Item>())
-            {
-                Item item = collisionStruct.sourceCollider.GetComponentInParent<Item>();
+            Debug.Log("Rock on damage");
 
-                Item ownItem = collisionStruct.targetCollider.GetComponentInParent<Item>();
+            if (collisionStruct.impactVelocity.magnitude > 1)
+            {
+                bool l_leftS = (collisionStruct.sourceColliderGroup == Player.currentCreature.handLeft.colliderGroup);
+                bool l_leftT = (collisionStruct.targetColliderGroup == Player.currentCreature.handLeft.colliderGroup);
+
+                bool l_rightS = (collisionStruct.sourceColliderGroup == Player.currentCreature.handRight.colliderGroup);
+                bool l_rightT = (collisionStruct.targetColliderGroup == Player.currentCreature.handRight.colliderGroup);
+
+
+                Item ownItem = null;
+                Collider hitCol = null;
+                Vector3 forceVec = Vector3.zero;
+
+
+
+                if (l_leftS || l_rightS)
+                {
+                    ownItem = collisionStruct.targetCollider.GetComponentInParent<Item>();
+                    hitCol = collisionStruct.targetCollider;
+
+                }
+                if (l_leftT || l_rightT)
+                {
+                    ownItem = collisionStruct.sourceCollider.GetComponentInParent<Item>();
+                    hitCol = collisionStruct.sourceCollider;
+                }
+
+
+
+                if (ownItem == null)
+                    return;
+
                 ownItem.rb.useGravity = true;
 
-                if (item == Player.local.handLeft.itemHand.item)
+                EffectInstance effectInstance = Catalog.GetData<EffectData>(punchEffectId, true).Spawn(ownItem.transform.position, Quaternion.identity);
+                effectInstance.Play();
+
+                if (l_leftS || l_leftT)
                 {
-                    if (mana.casterLeft.spellInstance?.id == "EarthBending")
-                    {
-                        EffectInstance effectInstance = punchEffectData.Spawn(ownItem.transform.position, Quaternion.identity);
-                        effectInstance.Play();
-
-                        Vector3 forceVec = AimAssist(ownItem.transform.position, leftVel.normalized, punchAimPrecision, punchAimRandomness);
-
-                        collisionStruct.targetCollider.attachedRigidbody.AddForce(forceVec * punchForce, ForceMode.Impulse);
-                    }
+                    forceVec = AimAssist(ownItem.transform.position, leftVel.normalized, punchAimPrecision, punchAimRandomness);
+                }
+                if (l_rightS || l_rightT)
+                {
+                    forceVec = AimAssist(ownItem.transform.position, rightVel.normalized, punchAimPrecision, punchAimRandomness);
                 }
 
-                if (item == Player.local.handRight.itemHand.item)
-                {
-                    if (mana.casterRight.spellInstance?.id == "EarthBending")
-                    {
-                        EffectInstance effectInstance = Catalog.GetData<EffectData>(punchEffectId, true).Spawn(ownItem.transform.position, Quaternion.identity);
-                        effectInstance.Play();
 
-                        Vector3 forceVec = AimAssist(ownItem.transform.position, rightVel.normalized, punchAimPrecision, punchAimRandomness);
-
-                        collisionStruct.targetCollider.attachedRigidbody.AddForce(forceVec * punchForce, ForceMode.Impulse);
-                    }
-                }
+                hitCol.attachedRigidbody.AddForce(forceVec * punchForce, ForceMode.Impulse);
             }
         }
 
         private Vector3 AimAssist(Vector3 ownPosition, Vector3 ownDirection, float aimPrecision, float randomness)
         {
+            Creature toHit = null;
+            float closest = -1;
+            Vector3 dirS = Vector3.zero;
+
             foreach (Creature creature in Creature.list)
             {
-                if (creature != Creature.player && !creature.health.isKilled)
+                if (creature != Player.currentCreature && !creature.isKilled)
                 {
-                    Vector3 dir = (creature.ragdoll.GetPart(HumanBodyBones.Chest).transform.position - ownPosition).normalized;
+                    Vector3 dir = (creature.ragdoll.GetPart(RagdollPart.Type.Head).transform.position - ownPosition).normalized;
                     if (Vector3.Dot(ownDirection, dir) > aimPrecision)
                     {
-                        Vector3 rand = UnityEngine.Random.insideUnitSphere * randomness;
-
-                        return (dir + rand).normalized;
+                        if (Vector3.Dot(ownDirection, dir) > closest)
+                        {
+                            closest = Vector3.Dot(ownDirection, dir);
+                            toHit = creature;
+                            dirS = dir;
+                        }
                     }
                 }
             }
-            return ownDirection;
+
+            if (toHit != null)
+            {
+                Vector3 rand = UnityEngine.Random.insideUnitSphere * randomness;
+
+                return (dirS + rand).normalized;
+            } else
+            {
+                return ownDirection;
+            }
+
+            
         }
     }    
     
@@ -1184,13 +1312,13 @@ namespace EarthBendingSpell
             if (col.collider.GetComponentInParent<Creature>())
             {
                 Creature creature = col.collider.GetComponentInParent<Creature>();
-                if (creature != Creature.player)
+                if (creature != Player.currentCreature)
                 {
-                    if (!creature.health.isKilled)
+                    if (!creature.isKilled)
                     {
-                        CollisionStruct collisionStruct = new CollisionStruct(new DamageStruct(DamageType.Energy, 20.0f));
+                        CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Energy, 20.0f));
 
-                        creature.health.Damage(ref collisionStruct);
+                        creature.Damage(collisionStruct);
                     }
                 }
             }

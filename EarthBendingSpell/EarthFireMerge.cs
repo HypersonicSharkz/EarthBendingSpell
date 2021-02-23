@@ -116,15 +116,14 @@ namespace EarthBendingSpell
 						if (collider.GetComponentInParent<Creature>())
 						{
 							Creature creature = collider.GetComponentInParent<Creature>();
-							if (creature != Creature.player)
+							if (creature != Player.currentCreature)
 							{
-								if (creature.ragdoll.state != Creature.State.Dead)
+								if (creature.state != Creature.State.Dead)
 								{
-									creature.TryAction(new ActionShock(10, 12), true);
+									creature.brain.TryAction(new ActionShock(10, 12), true);
 
-									CollisionStruct collisionStruct = new CollisionStruct(new DamageStruct(DamageType.Pierce, 0.1f));
-
-									creature.health.Damage(ref collisionStruct);
+									CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, 0.1f));
+									creature.Damage(collisionStruct);
 								}
 							}
 							else

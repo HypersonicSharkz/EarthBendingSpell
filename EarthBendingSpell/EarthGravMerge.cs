@@ -64,7 +64,7 @@ namespace EarthBendingSpell
 
 			EffectInstance bubbleEffect = null;
 
-			bubbleEffect = bubbleEffectData.Spawn(centerPoint, Quaternion.identity, null, true, Array.Empty<Type>());
+			bubbleEffect = bubbleEffectData.Spawn(centerPoint, Quaternion.identity);
 			bubbleEffect.SetIntensity(0f);
 			bubbleEffect.Play(0);
 
@@ -76,7 +76,7 @@ namespace EarthBendingSpell
 				if (particleSystem.gameObject.name == "Portal")
                 {
 					float startDelay = particleSystem.main.startDelay.constant;
-					Player.local.body.handLeft.caster.mana.StartCoroutine(PlayEffectSound(startDelay, portalEffectData, particleSystem.transform.position, 3f));
+					Player.currentCreature.mana.StartCoroutine(PlayEffectSound(startDelay, portalEffectData, particleSystem.transform.position, 3f));
 				}
 
 				if (particleSystem.gameObject.name == "Rock")
@@ -134,11 +134,11 @@ namespace EarthBendingSpell
 						if (collider.GetComponentInParent<Creature>())
 						{
 							Creature creature = collider.GetComponentInParent<Creature>();
-							if (creature != Creature.player)
+							if (creature != Player.currentCreature)
 							{
-								if (creature.ragdoll.state == Creature.State.Alive)
+								if (creature.state == Creature.State.Alive)
 								{
-									creature.ragdoll.SetState(Creature.State.Destabilized);
+									creature.ragdoll.SetState(Ragdoll.State.Destabilized);
 								}
 								StartCoroutine(AddForceCoroutine(collider.attachedRigidbody, particleCollisionEvent.intersection));
 							} 
@@ -148,7 +148,7 @@ namespace EarthBendingSpell
 
 							if (item.mainHandler)
                             {
-								if (item.mainHandler.bodyHand.body.creature != Creature.player)
+								if (item.mainHandler.creature != Player.currentCreature)
                                 {
 									StartCoroutine(AddForceCoroutine(collider.attachedRigidbody, particleCollisionEvent.intersection));
 								}

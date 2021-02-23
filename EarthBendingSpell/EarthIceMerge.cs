@@ -54,14 +54,14 @@ namespace EarthBendingSpell
 
 		IEnumerator IceSpikesCoroutine()
         {
-			Vector3 pos = Player.local.body.transform.position;
+			Vector3 pos = Player.currentCreature.transform.position;
 
 			EffectInstance frostEffectInstance= frostEffectData.Spawn(pos, Quaternion.identity);
 			frostEffectInstance.Play();
 
 			foreach (Creature creature in Creature.list)
             {
-				if (creature != Creature.player && !creature.health.isKilled)
+				if (creature != Player.currentCreature && !creature.isKilled)
                 {
 					float dist = Vector3.Distance(creature.transform.position, pos);
 					if (dist < frostRadius)
@@ -76,7 +76,7 @@ namespace EarthBendingSpell
 			frostEffectInstance.Stop();
 			EarthBendingController.IceActive = false;
 		}
-
+		
 		IEnumerator FreezeCreature(Creature targetCreature, float duration)
         {
 			/*
@@ -86,29 +86,29 @@ namespace EarthBendingSpell
 			effectInstance.SetIntensity(1f);
 			*/
 
-			targetCreature.StopBrain();
+			//targetCreature.StopBrain();
 
 			targetCreature.animator.speed = 0;
 			targetCreature.locomotion.speed = 0;
 
 			yield return new WaitForSeconds(0.1f);
 
-			EffectInstance effectInstance = frozenEffectData.Spawn(targetCreature.body.transform.position, Quaternion.identity);
+			EffectInstance effectInstance = frozenEffectData.Spawn(targetCreature.transform.position, Quaternion.identity);
 			effectInstance.Play();
 			Animator animator = effectInstance.effects[0].GetComponentInChildren<Animator>();
 
 			yield return new WaitForSeconds(duration);
 
-			CollisionStruct collisionStruct = new CollisionStruct(new DamageStruct(DamageType.Energy, 20.0f));
+			CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Energy, 20.0f));
 
-			targetCreature.health.Damage(ref collisionStruct);
+			targetCreature.Damage(collisionStruct);
 
 			targetCreature.animator.speed = 1;
 			targetCreature.locomotion.speed = targetCreature.data.locomotionSpeed;
 
-			if (!targetCreature.health.isKilled && !targetCreature.brain.isActive)
+			if (!targetCreature.isKilled && !targetCreature.brain.instance.isActive)
 			{
-				targetCreature.StartBrain();
+				//targetCreature.StartBrain();
 			}
 
 			animator.SetBool("Play", true);

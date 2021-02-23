@@ -45,7 +45,7 @@ namespace EarthBendingSpell
 					cloudEffectInstance.Despawn();
 				}
 
-				cloudEffectInstance = stormStartEffectData.Spawn(Player.local.body.transform.position, Quaternion.identity);
+				cloudEffectInstance = stormStartEffectData.Spawn(Player.currentCreature.transform.position, Quaternion.identity);
 				cloudEffectInstance.Play();
 
 				return;
@@ -73,14 +73,14 @@ namespace EarthBendingSpell
 
 		public IEnumerator StormCoroutine()
 		{
-			Vector3 playerPos = Player.local.body.transform.position;
+			Vector3 playerPos = Player.currentCreature.transform.position;
 
 			//Get all creatures in range
 			foreach (Creature creature in Creature.list)
             {
-				if (creature != Creature.player)
+				if (creature != Player.currentCreature)
                 {
-					if (creature.ragdoll.state != Creature.State.Dead)
+					if (creature.state != Creature.State.Dead)
                     {
 						float dist = Vector3.Distance(playerPos, creature.transform.position);
 						if (dist < stormRadius)
@@ -106,7 +106,7 @@ namespace EarthBendingSpell
                     }
                 } else
                 {
-					EffectInstance stormInst = stormEffectData.Spawn(creature.transform.position + creature.body.transform.forward * 2, Quaternion.identity);
+					EffectInstance stormInst = stormEffectData.Spawn(creature.transform.position + creature.transform.forward * 2, Quaternion.identity);
 					stormInst.Play();
 
 
@@ -173,11 +173,11 @@ namespace EarthBendingSpell
 						if (collider.GetComponentInParent<Creature>())
 						{
 							Creature creature = collider.GetComponentInParent<Creature>();
-							if (creature != Creature.player)
+							if (creature != Player.currentCreature)
 							{
-								if (creature.ragdoll.state != Creature.State.Dead)
+								if (creature.state != Creature.State.Dead)
 								{
-									creature.TryAction(new ActionShock(10, 12), true);
+									creature.brain.TryAction(new ActionShock(10, 12), true);
 								}
 							}
 							else
