@@ -76,15 +76,40 @@ namespace EarthBendingSpell
 			frostEffectInstance.Stop();
 			EarthBendingController.IceActive = false;
 		}
-		
+
+
+		IEnumerator FreezeCreature(Creature targetCreature, float duration)
+		{
+			EffectInstance effectInstance = frozenEffectData.Spawn(targetCreature.transform.position, Quaternion.identity, targetCreature.transform);
+			effectInstance.Play();
+
+			targetCreature.ragdoll.SetState(Ragdoll.State.Frozen);
+			targetCreature.ragdoll.AddNoStandUpModifier(this);
+
+			targetCreature.brain.Stop();
+
+			yield return new WaitForSeconds(duration);
+
+			if (!targetCreature.isKilled)
+			{
+				targetCreature.ragdoll.SetState(Ragdoll.State.Destabilized);
+				targetCreature.ragdoll.RemoveNoStandUpModifier(this);
+
+				targetCreature.brain.Load(targetCreature.brain.instance.id);
+			}
+
+			effectInstance.Despawn();
+		}
+
+		/*
 		IEnumerator FreezeCreature(Creature targetCreature, float duration)
         {
-			/*
+			//
 			EffectInstance effectInstance = frozenEffectData.Spawn(targetCreature.ragdoll.hipsPart.transform, true, Array.Empty<Type>());
 			effectInstance.SetRenderer(targetCreature.bodyMeshRenderer, false);
 			effectInstance.Play(0);
 			effectInstance.SetIntensity(1f);
-			*/
+			//
 
 			//targetCreature.StopBrain();
 
@@ -116,7 +141,7 @@ namespace EarthBendingSpell
 			yield return new WaitForSeconds(5f);
 
 			effectInstance.Despawn();
-		}
+		}*/
 
 	}
 }

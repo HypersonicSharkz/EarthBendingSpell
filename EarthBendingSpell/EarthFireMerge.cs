@@ -122,7 +122,7 @@ namespace EarthBendingSpell
 								{
 									creature.brain.TryAction(new ActionShock(10, 12), true);
 
-									CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, 0.1f));
+									CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, 0.5f));
 									creature.Damage(collisionStruct);
 								}
 							}

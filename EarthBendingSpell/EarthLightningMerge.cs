@@ -178,6 +178,7 @@ namespace EarthBendingSpell
 								if (creature.state != Creature.State.Dead)
 								{
 									creature.brain.TryAction(new ActionShock(10, 12), true);
+									creature.Damage(new CollisionInstance(new DamageStruct(DamageType.Energy, 5f)));
 								}
 							}
 							else

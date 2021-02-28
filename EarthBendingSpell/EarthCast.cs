@@ -887,7 +887,7 @@ namespace EarthBendingSpell
                                 {
                                     creature.ragdoll.SetState(Ragdoll.State.Destabilized);
                                     CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, spikeDamage));
-                                    collisionStruct.NewHit(null, creature.ragdoll.GetPart(RagdollPart.Type.Torso).colliderGroup.colliders[0], null, creature.ragdoll.GetPart(RagdollPart.Type.Torso).colliderGroup, Vector3.up * 20f, creature.ragdoll.GetPart(RagdollPart.Type.Torso).colliderGroup.colliders[0].ClosestPointOnBounds(hit.point), (hit.point - creature.ragdoll.GetPart(RagdollPart.Type.Torso).colliderGroup.colliders[0].ClosestPointOnBounds(hit.point)).normalized, 10f, Catalog.GetData<MaterialData>("Blade"), Catalog.GetData<MaterialData>("Flesh"));
+           
                                     creature.Damage(collisionStruct);
 
 
