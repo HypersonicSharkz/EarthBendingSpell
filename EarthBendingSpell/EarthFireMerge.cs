@@ -94,6 +94,39 @@ namespace EarthBendingSpell
 		}
     }
 
+
+	public class SomeParticleCollisionDetectorClass : MonoBehaviour
+    {
+		public List<ParticleCollisionEvent> collisionEvents = new List<ParticleCollisionEvent>();
+
+		private void OnParticleCollision(GameObject other)
+		{
+			foreach (ParticleCollisionEvent pE in collisionEvents)
+			{
+				foreach (Collider collider in Physics.OverlapSphere(pE.intersection, .2f))
+				{
+					if (collider.attachedRigidbody)
+					{
+						if (collider.GetComponentInParent<Creature>())
+						{
+							Creature creature = collider.GetComponentInParent<Creature>();
+							creature.brain.instance.GetModule<BrainModuleSpeak>(false).Play("death", true);
+
+							if (creature != Player.currentCreature)
+							{
+								if (creature.state != Creature.State.Dead)
+								{
+									CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, 0.5f));
+									creature.Damage(collisionStruct);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	public class BulletCollisionClass : MonoBehaviour
     {
 		public ParticleSystem part;
@@ -120,7 +153,7 @@ namespace EarthBendingSpell
 							{
 								if (creature.state != Creature.State.Dead)
 								{
-									creature.brain.TryAction(new ActionShock(10, 12), true);
+									creature.TryElectrocute(10, 12, true, false);
 
 									CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, 0.5f));
 									creature.Damage(collisionStruct);

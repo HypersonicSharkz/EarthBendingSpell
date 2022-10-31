@@ -76,7 +76,7 @@ namespace EarthBendingSpell
 			Vector3 playerPos = Player.currentCreature.transform.position;
 
 			//Get all creatures in range
-			foreach (Creature creature in Creature.list)
+			foreach (Creature creature in Creature.allActive)
             {
 				if (creature != Player.currentCreature)
                 {
@@ -177,7 +177,7 @@ namespace EarthBendingSpell
 							{
 								if (creature.state != Creature.State.Dead)
 								{
-									creature.brain.TryAction(new ActionShock(10, 12), true);
+									creature.TryElectrocute(10, 12, true, false);
 									creature.Damage(new CollisionInstance(new DamageStruct(DamageType.Energy, 5f)));
 								}
 							}

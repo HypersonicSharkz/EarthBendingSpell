@@ -59,7 +59,7 @@ namespace EarthBendingSpell
 			EffectInstance frostEffectInstance= frostEffectData.Spawn(pos, Quaternion.identity);
 			frostEffectInstance.Play();
 
-			foreach (Creature creature in Creature.list)
+			foreach (Creature creature in Creature.allActive)
             {
 				if (creature != Player.currentCreature && !creature.isKilled)
                 {
@@ -83,8 +83,8 @@ namespace EarthBendingSpell
 			EffectInstance effectInstance = frozenEffectData.Spawn(targetCreature.transform.position, Quaternion.identity, targetCreature.transform);
 			effectInstance.Play();
 
-			targetCreature.ragdoll.SetState(Ragdoll.State.Frozen);
-			targetCreature.ragdoll.AddNoStandUpModifier(this);
+			targetCreature.animator.speed = 0;
+			targetCreature.locomotion.SetSpeedModifier(this, 0, 0, 0, 0, 0);
 
 			targetCreature.brain.Stop();
 
@@ -93,7 +93,9 @@ namespace EarthBendingSpell
 			if (!targetCreature.isKilled)
 			{
 				targetCreature.ragdoll.SetState(Ragdoll.State.Destabilized);
-				targetCreature.ragdoll.RemoveNoStandUpModifier(this);
+
+				targetCreature.animator.speed = 1;
+				targetCreature.locomotion.ClearSpeedModifiers();
 
 				targetCreature.brain.Load(targetCreature.brain.instance.id);
 			}

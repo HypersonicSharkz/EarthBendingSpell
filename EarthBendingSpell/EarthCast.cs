@@ -14,7 +14,7 @@ namespace EarthBendingSpell
         public float shieldMinSpeed;
         public string shieldItemId;
         public float shieldFreezeTime;
-        public float shieldHealth;
+        public int shieldHealth;
         public float shieldPushMul;
 
         public float pushMinSpeed;
@@ -161,20 +161,9 @@ namespace EarthBendingSpell
             }
         }
 
-
-        public override void OnImbueCollisionStart(CollisionInstance collisionInstance)
+        public override bool OnImbueCollisionStart(CollisionInstance collisionInstance)
         {
             base.OnImbueCollisionStart(collisionInstance);
-
-
-            if (imbue.colliderGroup.modifier.imbueType == ColliderGroupData.ImbueType.Crystal && !collisionInstance.targetColliderGroup && collisionInstance.impactVelocity.magnitude > imbueHitGroundMinVelocity && imbue.CanConsume(imbueHitGroundConsumption) && Time.time - imbueHitGroundLastTime > imbueHitGroundRechargeDelay)
-            {
-                imbue.colliderGroup.collisionHandler.item.StartCoroutine(RockShockWaveCoroutine(collisionInstance.contactPoint, collisionInstance.contactNormal, collisionInstance.sourceColliderGroup.transform.up, collisionInstance.impactVelocity));
-                imbueHitGroundLastTime = Time.time;
-                return;
-            }
-
-
 
             if (collisionInstance.damageStruct.hitRagdollPart)
             {
@@ -194,7 +183,7 @@ namespace EarthBendingSpell
                     {
                         if (ragdollPart.data.bodyDamagerData.dismembermentAllowed)
                         {
-                            creature.ragdoll.Slice(ragdollPart);
+                            creature.ragdoll.TrySlice(ragdollPart);
                             creature.Kill();
                         }
                         
@@ -202,7 +191,16 @@ namespace EarthBendingSpell
                 }
 
             }
+
+            return true;
             
+        }
+
+        public override bool OnCrystalSlam(CollisionInstance collisionInstance)
+        {
+            imbue.colliderGroup.collisionHandler.item.StartCoroutine(RockShockWaveCoroutine(collisionInstance.contactPoint, collisionInstance.contactNormal, collisionInstance.sourceColliderGroup.transform.up, collisionInstance.impactVelocity));
+            imbueHitGroundLastTime = Time.time;
+            return true;
         }
 
         IEnumerator RockShockWaveCoroutine(Vector3 contactPoint, Vector3 contactNormal, Vector3 contactNormalUpward, Vector3 impactVelocity)
@@ -240,7 +238,7 @@ namespace EarthBendingSpell
             yield return new WaitForSeconds(0.1f);
         }
 
-        public override void OnCrystalUse(Side side, bool active)
+        public override bool OnCrystalUse(RagdollHand hand, bool active)
         {
             Debug.Log("crystal use");
             if (!active)
@@ -276,9 +274,13 @@ namespace EarthBendingSpell
 
                         rock.rb.AddForce(imbue.colliderGroup.imbueShoot.forward * imbueCrystalShootForce * rb.GetPointVelocity(imbue.colliderGroup.imbueShoot.position).magnitude, ForceMode.Impulse);
                         rock.Throw(1f, Item.FlyDetection.Forced);
-                    });                    
+                    });
+
+                    return true;
                 }
             }
+
+            return false;
         }
     }
 
@@ -301,7 +303,7 @@ namespace EarthBendingSpell
 
             if (feetTypes.HasFlag(type))
             {
-                creature.locomotion.speed = 0f;
+                creature.locomotion.speedModifiers.Add(new Locomotion.SpeedModifier(this, 0,0,0,0,0));
             }
 
             RagdollPart.Type armTypesLeft = RagdollPart.Type.LeftArm | RagdollPart.Type.LeftHand;
@@ -341,7 +343,7 @@ namespace EarthBendingSpell
             if (type == RagdollPart.Type.Head || type == RagdollPart.Type.Neck)
             {
                 creature.brain.Stop();
-                creature.locomotion.speed = 0f;
+                creature.locomotion.speedModifiers.Add(new Locomotion.SpeedModifier(this, 0, 0, 0, 0, 0));
                 creature.animator.speed = 0f;
             }
 
@@ -351,13 +353,12 @@ namespace EarthBendingSpell
         public void ResetCreature()
         {
             ragdollPart.rb.constraints = RigidbodyConstraints.None;
-            creature.locomotion.speed = creature.data.locomotionSpeed;
+            creature.locomotion.ClearSpeedModifiers();
 
             if (!creature.brain.instance.isActive)
             {
                 creature.brain.instance.Start();
             }
-            creature.locomotion.speed = creature.data.locomotionSpeed;
             creature.animator.speed = 1f;
         }
 
@@ -417,7 +418,7 @@ namespace EarthBendingSpell
         public float shieldMinSpeed;
         public string shieldItemId;
         public float shieldFreezeTime;
-        public float shieldHealth;
+        public int shieldHealth;
         public float shieldPushMul;
 
         public float pushMinSpeed;
@@ -758,6 +759,8 @@ namespace EarthBendingSpell
                 {
                     rockPillarItemData.SpawnAsync(delegate (Item rockPillar)
                     {
+                        rockPillar.Throw();
+
                         rockPillar.transform.position = child.position;
                         rockPillar.transform.rotation = child.rotation;
 
@@ -871,7 +874,7 @@ namespace EarthBendingSpell
                 spikes.Play();
 
                 //Get creatures in front
-                foreach (Creature creature in Creature.list)
+                foreach (Creature creature in Creature.allActive)
                 {
                     if (creature != Player.currentCreature)
                     {
@@ -924,8 +927,9 @@ namespace EarthBendingSpell
 
                 shieldItemData.SpawnAsync(delegate (Item shield)
                 {
+                    shield.Throw();
                     shield.StartCoroutine(ShieldSpawnedCoroutine(shield, hit));
-                }, null, null, null,true, new List<Item.SavedValue>() { new Item.SavedValue("HP", shieldHealth.ToString()) });
+                }, null, null, null,true);
             }
 
             yield return null;
@@ -933,7 +937,7 @@ namespace EarthBendingSpell
 
         private IEnumerator ShieldSpawnedCoroutine(Item shield, RaycastHit hit)
         {
-            shield.SetSavedValue("HP", shieldHealth.ToString());
+            shield.AddCustomData<ShieldCustomData>(new ShieldCustomData(shieldHealth));
 
             Vector3 spawnPoint = hit.point;
 
@@ -1037,10 +1041,10 @@ namespace EarthBendingSpell
                     hitCol = collisionStruct.sourceCollider;
                 }
 
-                string HP;
-                shield.TryGetSavedValue("HP", out HP);
+                ShieldCustomData HP;
+                shield.TryGetCustomData<ShieldCustomData>(out HP);
 
-                float OldHP = float.Parse(HP);
+                int OldHP = HP.hp;
 
                 if (shield != null)
                 {
@@ -1059,10 +1063,8 @@ namespace EarthBendingSpell
                     }
                 }
 
-                string lastHit = "0";
-                shield.TryGetSavedValue("LastHit", out lastHit);
 
-                if (Time.time - float.Parse(lastHit) > 0.1f)
+                if (Time.time - HP.lastHit > 0.1f)
                 {
                     if (OldHP - 1 < 1)
                     {
@@ -1070,14 +1072,23 @@ namespace EarthBendingSpell
                     }
                     else
                     {
-                        shield.SetSavedValue("HP", (OldHP - 1).ToString());
+                        HP.hp = OldHP - 1;
                     }
-
-                    shield.SetSavedValue("LastHit", Time.time.ToString());
-
+                    HP.lastHit = Time.time;
                 }
+            }
 
 
+        }
+
+        class ShieldCustomData : ContentCustomData
+        {
+            public int hp;
+            public float lastHit;
+
+            public ShieldCustomData(int hp)
+            {
+                this.hp = hp;
             }
         }
 
@@ -1137,6 +1148,7 @@ namespace EarthBendingSpell
                 Catalog.GetData<ItemData>(randRock).SpawnAsync(delegate (Item rock)
                 {
                     rock.StartCoroutine(RockSpawnedCoroutine(rock, spawnPoint, hit));
+
                 }, spawnPoint, Player.currentCreature.transform.rotation, null, false);
             }
             yield return null;
@@ -1144,6 +1156,8 @@ namespace EarthBendingSpell
 
         IEnumerator RockSpawnedCoroutine(Item rock, Vector3 spawnPoint, RaycastHit hit)
         {
+            rock.Throw();
+
             rock.rb.mass = UnityEngine.Random.Range(rockMassMinMax.x, rockMassMinMax.y);
 
             rock.transform.position = spawnPoint;
@@ -1269,7 +1283,7 @@ namespace EarthBendingSpell
             float closest = -1;
             Vector3 dirS = Vector3.zero;
 
-            foreach (Creature creature in Creature.list)
+            foreach (Creature creature in Creature.allActive)
             {
                 if (creature != Player.currentCreature && !creature.isKilled)
                 {
