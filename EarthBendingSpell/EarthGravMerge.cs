@@ -14,9 +14,15 @@ namespace EarthBendingSpell
     class EarthGravMerge : SpellMergeData
     {
         public string bubbleEffectId;
-		public float bubbleMinCharge;
-		public float rockExplosionRadius;
-		public float rockExplosionForce;
+        
+        public float bubbleMinCharge;
+
+        [ModOption(category = "Meteor Barrage", name = "Meteor Explosion Radius", tooltip = "Radius of explosion when gravity rocks hits the ground")]
+        [ModOptionFloatValues(0, 10, 0.5f)]
+        public static float rockExplosionRadius = 2f;
+        [ModOption(category = "Meteor Barrage", name = "Meteor Explosion Force", tooltip = "Force of explosion when gravity rocks hits the ground")]
+        [ModOptionIntValues(1, 30, 1)]
+        public static int rockExplosionForce = 10;
 
 		public string portalEffectId;
 		public string rockCollisionEffectId;

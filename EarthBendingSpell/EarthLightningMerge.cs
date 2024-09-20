@@ -16,7 +16,13 @@ namespace EarthBendingSpell
 		public float stormMinCharge;
 		public float stormRadius;
 
-		public string stormEffectId;
+        [ModOption(category = "Lightning Storm", name = "Storm Duration", tooltip = "Duration of the storm effect")]
+        [ModOptionIntValues(1, 30, 1)]
+        public static int stormDuration = 15;
+
+
+
+        public string stormEffectId;
 		public string stormStartEffectId;
 		public string spikesCollisionEffectId;
 
@@ -61,7 +67,7 @@ namespace EarthBendingSpell
 					{
 						EarthBendingController.LightningActive = true;
 						mana.StartCoroutine(StormCoroutine());
-						mana.StartCoroutine(DespawnEffectDelay(cloudEffectInstance, 15f));
+						mana.StartCoroutine(DespawnEffectDelay(cloudEffectInstance, stormDuration));
 						currentCharge = 0;
 						return;
 					}
@@ -99,7 +105,7 @@ namespace EarthBendingSpell
 								}
                             }
 
-							mana.StartCoroutine(DespawnEffectDelay(stormInst, 15f));
+							mana.StartCoroutine(DespawnEffectDelay(stormInst, stormDuration));
 
 							yield return new WaitForSeconds(UnityEngine.Random.Range(0.1f, 0.4f));
                         }
@@ -120,7 +126,7 @@ namespace EarthBendingSpell
 						}
 					}
 
-					mana.StartCoroutine(DespawnEffectDelay(stormInst, 15f));
+					mana.StartCoroutine(DespawnEffectDelay(stormInst, stormDuration));
 				}
             }
 
@@ -156,8 +162,20 @@ namespace EarthBendingSpell
 		public ParticleSystem part;
 		public List<ParticleCollisionEvent> collisionEvents = new List<ParticleCollisionEvent>();
 
+        [ModOption(category = "Lightning Storm", name = "Storm Damage", tooltip = "Damage applied to enemies hit by the lightning spikes")]
+        [ModOptionIntValues(1, 100, 2)]
+        public static int stormDamage = 5;
 
-		private void OnParticleCollision(GameObject other)
+        [ModOption(category = "Lightning Storm", name = "Storm Electrocution Power", tooltip = "Power of eletrocution caused by the lightning spikes")]
+        [ModOptionIntValues(1, 50, 1)]
+        public static int electrocutionPower = 10;
+
+        [ModOption(category = "Lightning Storm", name = "Storm Electrocution Duration", tooltip = "Duration of eletrocution caused by the lightning spikes")]
+        [ModOptionIntValues(1, 30, 1)]
+        public static int electrocutionDuration = 12;
+
+
+        private void OnParticleCollision(GameObject other)
 		{
 			int numCollisionEvents = part.GetCollisionEvents(other, collisionEvents);
 
@@ -177,8 +195,8 @@ namespace EarthBendingSpell
 							{
 								if (creature.state != Creature.State.Dead)
 								{
-									creature.TryElectrocute(10, 12, true, false);
-									creature.Damage(new CollisionInstance(new DamageStruct(DamageType.Energy, 5f)));
+									creature.TryElectrocute(electrocutionPower, electrocutionDuration, true, false);
+									creature.Damage(new CollisionInstance(new DamageStruct(DamageType.Energy, stormDamage)));
 								}
 							}
 							else

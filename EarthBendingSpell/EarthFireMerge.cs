@@ -28,7 +28,7 @@ namespace EarthBendingSpell
             base.OnCatalogRefresh();
             bulletEffectData = Catalog.GetData<EffectData>(bulletEffectId);
 			bulletCollisionEffectData = Catalog.GetData<EffectData>(bulletCollisionEffectId);
-
+			GetButtonIcon(true, (s) => Debug.Log("Pixels per unit: " + s.pixelsPerUnit + " Rect: " + s.rect.width + ", " + s.rect.height));
 		}
 
         public override void Merge(bool active)
@@ -69,8 +69,8 @@ namespace EarthBendingSpell
 
 			if (rotatingMergePoint != null)
             {
-				rotatingMergePoint.transform.rotation = Quaternion.LookRotation((mana.casterLeft.magic.transform.up + mana.casterRight.magic.transform.up));
-				rotatingMergePoint.transform.position = Vector3.Lerp(mana.casterLeft.magic.transform.position, mana.casterRight.magic.transform.position, 0.5f);
+				rotatingMergePoint.transform.rotation = Quaternion.LookRotation((mana.casterLeft.magicSource.transform.up + mana.casterRight.magicSource.transform.up));
+				rotatingMergePoint.transform.position = Vector3.Lerp(mana.casterLeft.magicSource.transform.position, mana.casterRight.magicSource.transform.position, 0.5f);
 			}
         }
 
@@ -94,39 +94,6 @@ namespace EarthBendingSpell
 		}
     }
 
-
-	public class SomeParticleCollisionDetectorClass : MonoBehaviour
-    {
-		public List<ParticleCollisionEvent> collisionEvents = new List<ParticleCollisionEvent>();
-
-		private void OnParticleCollision(GameObject other)
-		{
-			foreach (ParticleCollisionEvent pE in collisionEvents)
-			{
-				foreach (Collider collider in Physics.OverlapSphere(pE.intersection, .2f))
-				{
-					if (collider.attachedRigidbody)
-					{
-						if (collider.GetComponentInParent<Creature>())
-						{
-							Creature creature = collider.GetComponentInParent<Creature>();
-							creature.brain.instance.GetModule<BrainModuleSpeak>(false).Play("death", true);
-
-							if (creature != Player.currentCreature)
-							{
-								if (creature.state != Creature.State.Dead)
-								{
-									CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, 0.5f));
-									creature.Damage(collisionStruct);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
 	public class BulletCollisionClass : MonoBehaviour
     {
 		public ParticleSystem part;
@@ -134,7 +101,24 @@ namespace EarthBendingSpell
 
 		public EffectData bulletColData;
 
-		private void OnParticleCollision(GameObject other)
+        [ModOption(category = "Bullet Barrage", name = "Bullet Damage", tooltip = "Damage of each bullet")]
+        [ModOptionIntValues(1, 20, 1)]
+        public static int bulletDamage = 1;
+
+        [ModOption(category = "Bullet Barrage", name = "Bullet Burn Duration", tooltip = "How long enemies will be burning for when hit by a bullet")]
+        [ModOptionIntValues(1, 30, 1)]
+        public static int burnTime = 12;
+
+        [ModOption(category = "Bullet Barrage", name = "Bullet Burn Damage", tooltip = "Damage caused by burning")]
+        [ModOptionIntValues(1, 30, 1)]
+        public static int burnDamage = 5;
+
+
+        [ModOption(category = "Bullet Barrage", name = "Bullet Radius", tooltip = "How big of an explosion each bullet causes")]
+        [ModOptionFloatValues(0, 1, 0.1f)]
+        public static float bulletRadius = 0.2f;
+
+        private void OnParticleCollision(GameObject other)
 		{
 			int numCollisionEvents = part.GetCollisionEvents(other, collisionEvents);
 
@@ -142,7 +126,7 @@ namespace EarthBendingSpell
 			{
 				bulletColData.Spawn(pE.intersection, Quaternion.identity).Play();
 
-				foreach (Collider collider in Physics.OverlapSphere(pE.intersection, .2f))
+				foreach (Collider collider in Physics.OverlapSphere(pE.intersection, bulletRadius))
                 {
 					if (collider.attachedRigidbody)
 					{
@@ -153,9 +137,9 @@ namespace EarthBendingSpell
 							{
 								if (creature.state != Creature.State.Dead)
 								{
-									creature.TryElectrocute(10, 12, true, false);
+									creature.Inflict("Burning", EarthBendingController.Instance, burnTime, burnDamage, true);
 
-									CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, 0.5f));
+									CollisionInstance collisionStruct = new CollisionInstance(new DamageStruct(DamageType.Pierce, bulletDamage));
 									creature.Damage(collisionStruct);
 								}
 							}
